@@ -1,0 +1,48 @@
+{
+  "name": "bala",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.3.1",
+    "@radix-ui/react-dropdown-menu": "^2.2.1",
+    "@radix-ui/react-slider": "^1.6.1",
+    "@radix-ui/react-slot": "^1.5.0",
+    "@radix-ui/react-switch": "^1.4.1",
+    "@radix-ui/react-tabs": "^1.2.1",
+    "@radix-ui/react-tooltip": "^1.4.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/styled-components": "^5.1.36",
+    "@types/three": "^0.186.0",
+    "canvas-confetti": "^1.9.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^14.2.0",
+    "lucide-react": "^1.56.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "sass": "^1.105.1",
+    "styled-components": "^6.6.0",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.3",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jpeg-js": "^0.4.4",
+    "oxlint": "^1.81.0",
+    "pngjs": "^7.0.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}
