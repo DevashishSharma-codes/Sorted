@@ -1,9 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=VT323&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --font-pixel: 'Press Start 2P', monospace;
 }
 
 :root {
@@ -15,6 +17,163 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background-color: #ffffff;
+  background-color: #0c0b09;
   color: #111827;
+  overflow: hidden;
+}
+
+/* Authentic CRT scanlines effect inside the monitor tube */
+.crt-tube-lines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.48) 50%
+  ),
+  linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.08),
+    rgba(0, 255, 0, 0.04),
+    rgba(0, 0, 255, 0.08)
+  );
+  background-size: 100% 3.5px, 6px 100%;
+}
+
+/* Analog film grain / TV static noise */
+.crt-analog-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.35'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 160px 160px;
+}
+
+@keyframes grain-shift {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 2px); }
+  50% { transform: translate(2px, -1px); }
+  75% { transform: translate(-1px, -2px); }
+}
+
+.animate-grain {
+  animation: grain-shift 0.2s steps(2) infinite;
+}
+
+/* Clean retro text shadow (no chromatic glitch) */
+.crt-retro-text {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Subtle CRT phosphor screen flicker */
+@keyframes crt-flicker {
+  0% { opacity: 0.99; }
+  50% { opacity: 1; }
+  52% { opacity: 0.975; }
+  54% { opacity: 1; }
+  78% { opacity: 0.985; }
+  100% { opacity: 0.99; }
+}
+
+.animate-crt-flick {
+  animation: crt-flicker 0.12s infinite;
+}
+
+/* Subtle rolling CRT scanline bar */
+@keyframes crt-scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(1000%); }
+}
+
+.animate-crt-scan {
+  animation: crt-scanline 8s linear infinite;
+}
+
+/* Vintage CRT screen curvature vignette */
+.crt-tube-vignette {
+  background: radial-gradient(circle at center, transparent 60%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+/* Authentic CRT TV Off Collapse Animation */
+@keyframes crt-tv-off {
+  0% {
+    transform: scale(1, 1);
+    filter: brightness(1) contrast(1);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(1, 0.005);
+    filter: brightness(4) contrast(2);
+    opacity: 1;
+  }
+  65% {
+    transform: scale(0.006, 0.005);
+    filter: brightness(8);
+    opacity: 1;
+  }
+  90% {
+    transform: scale(0.002, 0.002);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(0, 0);
+    opacity: 0;
+  }
+}
+
+.animate-tv-off {
+  animation: crt-tv-off 0.24s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+  transform-origin: center center;
+}
+
+/* Authentic CRT TV Turn-On Expansion Animation */
+@keyframes crt-tv-on {
+  0% {
+    transform: scale(0.006, 0.005);
+    filter: brightness(6) contrast(2);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(1, 0.008);
+    filter: brightness(3.5) contrast(1.6);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1, 1.03);
+    filter: brightness(1.2) contrast(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1, 1);
+    filter: brightness(1) contrast(1);
+    opacity: 1;
+  }
+}
+
+.animate-tv-on {
+  animation: crt-tv-on 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center center;
+}
+
+/* TV Static Noise Glitch Burst */
+@keyframes tv-static-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(1); }
+  15% { opacity: 0.98; transform: translate(-5px, 3px) scale(1.02); }
+  35% { opacity: 0.92; transform: translate(6px, -4px) skewX(2.5deg); }
+  55% { opacity: 0.96; transform: translate(-4px, 5px) skewX(-2.5deg); }
+  75% { opacity: 0.85; transform: translate(3px, -2px) scale(1.01); }
+  90% { opacity: 0.35; transform: translate(0, 1px); }
+  100% { opacity: 0; transform: translate(0, 0) scale(1); }
+}
+
+.animate-static-burst {
+  animation: tv-static-burst 0.36s steps(4) forwards;
+}
+
+/* Horizontal CRT White Flash Slit Line */
+@keyframes crt-flash-line {
+  0% { transform: scaleX(0); opacity: 0; }
+  30% { transform: scaleX(1); opacity: 1; height: 3px; }
+  60% { transform: scaleX(0.2); opacity: 1; height: 4px; }
+  90% { transform: scaleX(0.02); opacity: 1; height: 4px; }
+  100% { transform: scaleX(0); opacity: 0; }
+}
+
+.animate-flash-line {
+  animation: crt-flash-line 0.26s ease-out forwards;
 }

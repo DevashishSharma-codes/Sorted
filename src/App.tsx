@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { DvdPlayerScene } from './components/3d/DvdPlayerScene'
+import { CrtMonitorFrame } from './components/ui/CrtMonitorFrame'
+import { ScreensaverLoadingScreen } from './components/ui/ScreensaverLoadingScreen'
+import { RetroFolderWindow } from './components/ui/RetroFolderWindow'
 import type { DiscData } from './data/discCatalog'
 import { soundEngine } from './audio/DriveSoundEngine'
-import { Volume2, VolumeX } from 'lucide-react'
 
 export function App() {
   const [activeDisc, setActiveDisc] = useState<DiscData | null>(null)
-  const [isSoundMuted, setIsSoundMuted] = useState(soundEngine.getIsMuted())
+  const [viewMode, setViewMode] = useState<'intro' | 'loading' | 'folders' | 'player'>('intro')
+  const [transitionPhase, setTransitionPhase] = useState<'idle' | 'collapsing' | 'expanding'>('idle')
 
   const handleDiscLoaded = (disc: DiscData) => {
     setActiveDisc(disc)
@@ -16,56 +19,120 @@ export function App() {
     setActiveDisc(null)
   }
 
-  const toggleSound = () => {
-    const isUnmuted = soundEngine.toggleMute()
-    setIsSoundMuted(!isUnmuted)
+  // 1. Arrow button on intro screen clicked: start 10s screensaver loading screen
+  const handleStartLoading = () => {
+    if (transitionPhase !== 'idle') return
+
+    soundEngine.playCrtGlitch()
+    setTransitionPhase('collapsing')
+
+    setTimeout(() => {
+      setViewMode('loading')
+      setTransitionPhase('expanding')
+
+      setTimeout(() => {
+        setTransitionPhase('idle')
+      }, 260)
+    }, 240)
+  }
+
+  // 2. 10s screensaver loading finishes (or user skips): open folders screen
+  const handleLoadingComplete = () => {
+    if (transitionPhase !== 'idle') return
+
+    soundEngine.playCrtGlitch()
+    setTransitionPhase('collapsing')
+
+    setTimeout(() => {
+      setViewMode('folders')
+      setTransitionPhase('expanding')
+
+      setTimeout(() => {
+        setTransitionPhase('idle')
+      }, 260)
+    }, 240)
+  }
+
+  // 3. User clicks on the first folder (DVD_Player): open 3D DVD player
+  const handleOpenPlayer = () => {
+    if (transitionPhase !== 'idle') return
+
+    soundEngine.playCrtGlitch()
+    setTransitionPhase('collapsing')
+
+    setTimeout(() => {
+      setViewMode('player')
+      setTransitionPhase('expanding')
+
+      setTimeout(() => {
+        setTransitionPhase('idle')
+      }, 260)
+    }, 240)
+  }
+
+  // 4. Return from DVD player to folders screen
+  const handleBackToFolders = () => {
+    if (transitionPhase !== 'idle') return
+
+    soundEngine.playCrtGlitch()
+    setTransitionPhase('collapsing')
+
+    setTimeout(() => {
+      setViewMode('folders')
+      setTransitionPhase('expanding')
+
+      setTimeout(() => {
+        setTransitionPhase('idle')
+      }, 260)
+    }, 240)
+  }
+
+  // 5. Return from folders screen to intro screen
+  const handleBackToIntro = () => {
+    if (transitionPhase !== 'idle') return
+
+    soundEngine.playCrtGlitch()
+    setTransitionPhase('collapsing')
+
+    setTimeout(() => {
+      setViewMode('intro')
+      setTransitionPhase('expanding')
+
+      setTimeout(() => {
+        setTransitionPhase('idle')
+      }, 260)
+    }, 240)
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-white select-none text-neutral-900 font-sans">
-      {/* 1. TOP-LEFT BRAND */}
-      <header className="absolute top-0 left-0 z-30 p-8 pointer-events-none">
-        <h1 className="text-3xl font-black font-sans tracking-tight text-neutral-900 m-0 leading-tight">
-          Sorted
-        </h1>
-      </header>
-
-      {/* 2. TOP-RIGHT SOUND CONTROLS matching reference */}
-      <div className="absolute top-0 right-0 z-30 p-8">
-        <button
-          onClick={toggleSound}
-          className="flex items-center gap-2 text-xs text-neutral-600 hover:text-neutral-950 font-medium transition-colors cursor-pointer bg-transparent border-0 outline-none"
-        >
-          {isSoundMuted ? (
-            <>
-              <VolumeX className="w-4 h-4 text-neutral-600" />
-              <span>Sound off</span>
-            </>
-          ) : (
-            <>
-              <Volume2 className="w-4 h-4 text-neutral-700" />
-              <span>Sound on</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* 3. MAIN 3D SCENE: Optical drive attached at the very top + Draggable CDs */}
-      <main className="w-full h-full">
-        <DvdPlayerScene
-          onDiscLoaded={handleDiscLoaded}
-          onDiscEjected={handleDiscEjected}
-          activeDiscId={activeDisc ? activeDisc.id : null}
-        />
-      </main>
-
-      {/* 4. BOTTOM LABELS matching reference */}
-      <footer className="absolute bottom-0 inset-x-0 z-20 px-8 py-6 flex justify-between items-center text-xs text-neutral-500 pointer-events-none">
-        <p className="m-0">Revisiting the programs that once filled my computer</p>
-        <p className="m-0 hover:text-neutral-950 transition-colors pointer-events-auto cursor-pointer font-medium">
-          Browse all at once
-        </p>
-      </footer>
+    <div className="relative w-screen h-screen overflow-hidden bg-[#12110e] select-none text-neutral-900 font-sans">
+      <CrtMonitorFrame
+        viewMode={viewMode}
+        transitionPhase={transitionPhase}
+        onEnterPlayer={handleStartLoading}
+        onBackToIntro={handleBackToIntro}
+        onBackToFolders={handleBackToFolders}
+        loadingContent={
+          <ScreensaverLoadingScreen
+            durationSeconds={10}
+            onComplete={handleLoadingComplete}
+          />
+        }
+        foldersContent={
+          <RetroFolderWindow
+            onOpenPlayer={handleOpenPlayer}
+            onBackToIntro={handleBackToIntro}
+          />
+        }
+        playerContent={
+          <DvdPlayerScene
+            onDiscLoaded={handleDiscLoaded}
+            onDiscEjected={handleDiscEjected}
+            activeDiscId={activeDisc ? activeDisc.id : null}
+            isActive={viewMode === 'player' && transitionPhase !== 'collapsing'}
+          />
+        }
+      />
     </div>
   )
 }

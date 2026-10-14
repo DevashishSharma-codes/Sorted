@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classic DVD Screensaver - Color Changing on Bounce</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    }
+    #screensaver-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background-color: #000000;
+      overflow: hidden;
+    }
+    #dvd-logo {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 220px;
+      height: 330px; /* 2:3 aspect ratio matching original 1024x1536 */
+      will-change: transform;
+      pointer-events: none;
+    }
+    #dvd-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      transition: filter 0.15s ease-out;
+    }
+    /* Minimalist HUD overlay */
+    #hud {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+      font-family: monospace;
+      letter-spacing: 0.08em;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      background: rgba(10, 10, 10, 0.6);
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    #hud span.highlight {
+      color: #38bdf8;
+      font-weight: bold;
+      transition: color 0.2s ease;
+    }
+    #corner-flash {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    #corner-flash.active {
+      opacity: 1;
+    }
+    #controls-hint {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.3);
+      font-family: monospace;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="screensaver-container">
+    <div id="corner-flash"></div>
+    <div id="dvd-logo">
+      <img src="/retro_vhs_logo.png" alt="Retro VHS Portrait and Video Disc" id="logo-img">
+    </div>
+    <div id="hud">
+      <span>DVD SCREENSAVER</span>
+      <span>COLOR: <span id="color-name" class="highlight">TEAL</span></span>
+      <span>BOUNCES: <span id="bounces-counter" class="highlight">0</span></span>
+      <span id="corner-container" style="display:none; color: #f59e0b;">CORNERS: <span id="corners-counter">0</span></span>
+    </div>
+    <div id="controls-hint">Double-click or press [F] for Fullscreen • [Space] to Pause</div>
+  </div>
+
+  <script>
+    (function() {
+      const container = document.getElementById('screensaver-container');
+      const logo = document.getElementById('dvd-logo');
+      const logoImg = document.getElementById('logo-img');
+      const bouncesCounter = document.getElementById('bounces-counter');
+      const cornersCounter = document.getElementById('corners-counter');
+      const cornerContainer = document.getElementById('corner-container');
+      const cornerFlash = document.getElementById('corner-flash');
+      const colorNameLabel = document.getElementById('color-name');
+
+      // High-contrast vibrant colors optimized for rich red background (no red/pink/orange camouflage)
+      const COLORS = [
+        { name: 'TEAL', filter: 'none', hex: '#22d3ee' },
+        { name: 'YELLOW', filter: 'hue-rotate(235deg) saturate(2.8) brightness(1.25)', hex: '#facc15' },
+        { name: 'LIME', filter: 'hue-rotate(295deg) saturate(2.6) brightness(1.25)', hex: '#4ade80' },
+        { name: 'CYAN', filter: 'hue-rotate(20deg) saturate(2.2) brightness(1.3)', hex: '#38bdf8' },
+        { name: 'BLUE', filter: 'hue-rotate(48deg) saturate(2.2) brightness(1.2)', hex: '#60a5fa' },
+        { name: 'GOLD', filter: 'hue-rotate(250deg) saturate(3.0) brightness(1.35)', hex: '#fbbf24' },
+        { name: 'SILVER', filter: 'grayscale(1) brightness(1.75) contrast(1.25)', hex: '#e2e8f0' },
+        { name: 'MINT', filter: 'hue-rotate(320deg) saturate(2.2) brightness(1.25)', hex: '#2dd4bf' }
+      ];
+
+      let currentColorIdx = 0;
+
+      // Visual content padding ratio inside 1024x1536 source image
+      // minX: 168, maxX: 856, minY: 206, maxY: 1372
+      const padLeftRatio = 168 / 1024;
+      const padRightRatio = (1024 - 856) / 1024;
+      const padTopRatio = 206 / 1536;
+      const padBottomRatio = (1536 - 1372) / 1536;
+
+      let logoWidth = 220;
+      let logoHeight = 330;
+
+      let posX = Math.floor((window.innerWidth - logoWidth) * 0.2);
+      let posY = Math.floor((window.innerHeight - logoHeight) * 0.25);
+
+      // Speed in pixels per second
+      let speed = 230;
+      // Angle: classic diagonal trajectory (~37 degrees)
+      let angle = 0.64;
+      let vx = speed * Math.cos(angle);
+      let vy = speed * Math.sin(angle);
+
+      let bounces = 0;
+      let corners = 0;
+      let isPaused = false;
+      let lastTime = performance.now();
+
+      function updateLogoSize() {
+        const minDimension = Math.min(window.innerWidth, window.innerHeight);
+        if (minDimension < 600) {
+          logoWidth = 160;
+          logoHeight = 240;
+        } else {
+          logoWidth = 220;
+          logoHeight = 330;
+        }
+        logo.style.width = logoWidth + 'px';
+        logo.style.height = logoHeight + 'px';
+      }
+
+      updateLogoSize();
+      window.addEventListener('resize', updateLogoSize);
+
+      function loop(now) {
+        const dt = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+
+        if (!isPaused) {
+          const screenW = window.innerWidth;
+          const screenH = window.innerHeight;
+
+          posX += vx * dt;
+          posY += vy * dt;
+
+          const visualPadLeft = logoWidth * padLeftRatio;
+          const visualPadRight = logoWidth * padRightRatio;
+          const visualPadTop = logoHeight * padTopRatio;
+          const visualPadBottom = logoHeight * padBottomRatio;
+
+          let hitX = false;
+          let hitY = false;
+
+          // Left edge collision
+          if (posX + visualPadLeft <= 0) {
+            posX = -visualPadLeft;
+            vx = Math.abs(vx);
+            hitX = true;
+          }
+          // Right edge collision
+          else if (posX + logoWidth - visualPadRight >= screenW) {
+            posX = screenW - logoWidth + visualPadRight;
+            vx = -Math.abs(vx);
+            hitX = true;
+          }
+
+          // Top edge collision
+          if (posY + visualPadTop <= 0) {
+            posY = -visualPadTop;
+            vy = Math.abs(vy);
+            hitY = true;
+          }
+          // Bottom edge collision
+          else if (posY + logoHeight - visualPadBottom >= screenH) {
+            posY = screenH - logoHeight + visualPadBottom;
+            vy = -Math.abs(vy);
+            hitY = true;
+          }
+
+          if (hitX || hitY) {
+            bounces++;
+            bouncesCounter.textContent = bounces;
+
+            // Change color on every edge/corner collision!
+            currentColorIdx = (currentColorIdx + 1) % COLORS.length;
+            const newCol = COLORS[currentColorIdx];
+            logoImg.style.filter = newCol.filter;
+            colorNameLabel.textContent = newCol.name;
+            colorNameLabel.style.color = newCol.hex;
+
+            if (hitX && hitY) {
+              corners++;
+              cornersCounter.textContent = corners;
+              cornerContainer.style.display = 'inline';
+              cornerFlash.style.background = newCol.hex + '33';
+              cornerFlash.classList.add('active');
+              setTimeout(() => cornerFlash.classList.remove('active'), 600);
+            }
+          }
+
+          logo.style.transform = `translate3d(${posX.toFixed(2)}px, ${posY.toFixed(2)}px, 0)`;
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      requestAnimationFrame(loop);
+
+      // Keyboard & Click controls
+      window.addEventListener('keydown', (e) => {
+        if (e.key === ' ') {
+          isPaused = !isPaused;
+        } else if (e.key.toLowerCase() === 'f') {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else {
+            document.exitFullscreen().catch(() => {});
+          }
+        }
+      });
+
+      window.addEventListener('dblclick', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

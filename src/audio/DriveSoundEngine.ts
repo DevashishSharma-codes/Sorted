@@ -28,6 +28,54 @@ class SoundEngine {
     return this.isMuted
   }
 
+  // Synthesizes authentic vintage CRT TV power-off collapse + static glitch pop
+  public playCrtGlitch() {
+    if (this.isMuted) return
+    this.initContext()
+    if (!this.ctx) return
+
+    const now = this.ctx.currentTime
+
+    // 1. Static burst (white noise buffer with fast decay)
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.35)
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.08))
+    }
+    const noiseSource = this.ctx.createBufferSource()
+    noiseSource.buffer = buffer
+
+    const noiseFilter = this.ctx.createBiquadFilter()
+    noiseFilter.type = 'bandpass'
+    noiseFilter.frequency.setValueAtTime(2200, now)
+    noiseFilter.Q.setValueAtTime(1.5, now)
+
+    const noiseGain = this.ctx.createGain()
+    noiseGain.gain.setValueAtTime(0.18, now)
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32)
+
+    noiseSource.connect(noiseFilter)
+    noiseFilter.connect(noiseGain)
+    noiseGain.connect(this.ctx.destination)
+    noiseSource.start(now)
+
+    // 2. High-pitch CRT horizontal flyback whine drop (12kHz down to 180Hz)
+    const osc = this.ctx.createOscillator()
+    const oscGain = this.ctx.createGain()
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(11000, now)
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.22)
+
+    oscGain.gain.setValueAtTime(0.06, now)
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24)
+
+    osc.connect(oscGain)
+    oscGain.connect(this.ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.25)
+  }
+
   // Synthesizes the motorized tray sliding out (hum + mechanical clack)
   public playTrayOpen() {
     if (this.isMuted) return
@@ -170,6 +218,50 @@ class SoundEngine {
     gain.connect(this.ctx.destination)
     osc.start(now)
     osc.stop(now + 0.07)
+  }
+
+  // Soft acrylic jewel case click when hovering
+  public playCaseHover() {
+    if (this.isMuted) return
+    this.initContext()
+    if (!this.ctx) return
+
+    const now = this.ctx.currentTime
+    const osc = this.ctx.createOscillator()
+    const gain = this.ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(800 + Math.random() * 200, now)
+    osc.frequency.exponentialRampToValueAtTime(300, now + 0.025)
+
+    gain.gain.setValueAtTime(0.04, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025)
+
+    osc.connect(gain)
+    gain.connect(this.ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.03)
+  }
+
+  // Crisp plastic snap when jewel case is clicked or focused
+  public playCaseClick() {
+    if (this.isMuted) return
+    this.initContext()
+    if (!this.ctx) return
+
+    const now = this.ctx.currentTime
+    const osc = this.ctx.createOscillator()
+    const gain = this.ctx.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(1200, now)
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.045)
+
+    gain.gain.setValueAtTime(0.12, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045)
+
+    osc.connect(gain)
+    gain.connect(this.ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.05)
   }
 
   // Synthesizes the optical drive spindle spin-up whining acceleration

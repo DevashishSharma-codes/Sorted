@@ -8,6 +8,7 @@ interface DvdPlayerSceneProps {
   onDiscLoaded: (disc: DiscData) => void
   onDiscEjected: () => void
   activeDiscId: number | null
+  isActive?: boolean
 }
 
 interface DiscMeshItem {
@@ -51,6 +52,7 @@ export function DvdPlayerScene({
   onDiscLoaded,
   onDiscEjected,
   activeDiscId,
+  isActive = false,
 }: DvdPlayerSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [hoveredDisc, setHoveredDisc] = useState<DiscData | null>(null)
@@ -69,6 +71,7 @@ export function DvdPlayerScene({
   const sceneRef = useRef<THREE.Scene | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const driveGroupRef = useRef<THREE.Group | null>(null)
   const trayMeshRef = useRef<THREE.Group | null>(null)
   const discMeshesRef = useRef<DiscMeshItem[]>([])
   const loadedDiscRef = useRef<THREE.Group | null>(null)
@@ -86,7 +89,7 @@ export function DvdPlayerScene({
   const raycaster = useRef(new THREE.Raycaster())
   const mouse = useRef(new THREE.Vector2())
 
-  // Center coordinate of tray well in world space
+  // Center coordinate of tray well in world space (flush with top bezel without clipping)
   const trayWellCenter = new THREE.Vector3(0, 1.341, 0.035)
 
   // -----------------------------------------------------------------
@@ -340,15 +343,17 @@ export function DvdPlayerScene({
 
     const scene = new THREE.Scene()
     sceneRef.current = scene
-    scene.background = new THREE.Color(0xffffff)
+    // Transparent scene background allows the yellowish-beige video backdrop to show through
+    scene.background = null
 
-    // Camera: Elevated perspective with full view of top drive and scattered CDs
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100)
-    camera.position.set(0, 0.45, 6.6)
-    camera.lookAt(0, 0.45, 0)
+    // Camera: Positioned and framed to keep top drive and bottom discs completely inside CRT screen
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100)
+    camera.position.set(0, 0.22, 7.6)
+    camera.lookAt(0, 0.22, 0)
     cameraRef.current = camera
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    renderer.setClearColor(0x000000, 0)
     renderer.setSize(width, height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -376,7 +381,8 @@ export function DvdPlayerScene({
     // 1. OPTICAL DRIVE CHASSIS & MOTORIZED TRAY (Attached at screen top)
     // -----------------------------------------------------------------
     const driveGroup = new THREE.Group()
-    driveGroup.position.set(0, 0, 0)
+    driveGroup.position.set(0, isActive ? 0.00 : 2.4, 0)
+    driveGroupRef.current = driveGroup
     scene.add(driveGroup)
 
     const textureLoader = new THREE.TextureLoader()
@@ -432,16 +438,16 @@ export function DvdPlayerScene({
     const cdInnerHoleR = 0.064 // Exact optical spindle hole ratio matching CD image
     const cdRadius = 0.68
 
-    // Authentic positions for the 4 real CDs with clean stacked Z depths and flat desk rotations
+    // Authentic positions for the 4 real CDs kept safely inside CRT screen bounds
     const discConfigs = [
       // 1. Arpit Bala (Blue Playlist Audio CD, Left Desk)
-      { pos: new THREE.Vector3(-1.90, -0.38, 0.18), rot: new THREE.Euler(0, 0, 0.12) },
+      { pos: new THREE.Vector3(-1.75, -0.28, 0.18), rot: new THREE.Euler(0, 0, 0.12) },
       // 2. Chaar Diwaari (Golden Holographic CD-R, Center-Left Desk)
-      { pos: new THREE.Vector3(-0.68, -0.98, 0.205), rot: new THREE.Euler(0, 0, -0.22) },
+      { pos: new THREE.Vector3(-0.62, -0.68, 0.205), rot: new THREE.Euler(0, 0, -0.20) },
       // 3. Karan Kanchan (CD-R74 with Red Swoosh, Center-Right Desk)
-      { pos: new THREE.Vector3(0.68, -0.98, 0.23), rot: new THREE.Euler(0, 0, 0.18) },
+      { pos: new THREE.Vector3(0.62, -0.68, 0.23), rot: new THREE.Euler(0, 0, 0.16) },
       // 4. Karhisab (Iridescent CD-R "A LOT", Right Desk)
-      { pos: new THREE.Vector3(1.90, -0.38, 0.255), rot: new THREE.Euler(0, 0, -0.14) },
+      { pos: new THREE.Vector3(1.75, -0.28, 0.255), rot: new THREE.Euler(0, 0, -0.14) },
     ]
 
     const discsCollection: DiscMeshItem[] = []
@@ -586,44 +592,6 @@ export function DvdPlayerScene({
     animate()
 
     // -----------------------------------------------------------------
-    // INITIAL ENTRANCE: Starts closed, glides open smoothly on page load
-    // -----------------------------------------------------------------
-    const initialOpenTimer = window.setTimeout(() => {
-      soundEngine.playTrayOpen()
-      setTrayState('opening')
-      trayStateRef.current = 'opening'
-      isDriveBusyRef.current = true
-
-      const trayOpenStart = performance.now()
-      const trayDuration = 1150
-      const startPos = new THREE.Vector3(0, 1.663, -0.01)
-      const openPos = new THREE.Vector3(0, 0, 0)
-
-      function animateInitialOpen(tNow: number) {
-        const tElapsed = tNow - trayOpenStart
-        const tProgress = Math.min(tElapsed / trayDuration, 1)
-        const tEase =
-          tProgress < 0.5
-            ? 4 * tProgress * tProgress * tProgress
-            : 1 - Math.pow(-2 * tProgress + 2, 3) / 2
-
-        if (trayMeshRef.current) {
-          trayMeshRef.current.position.lerpVectors(startPos, openPos, tEase)
-        }
-
-        if (tProgress < 1) {
-          requestAnimationFrame(animateInitialOpen)
-        } else {
-          setTrayState('open')
-          trayStateRef.current = 'open'
-          isDriveBusyRef.current = false
-          setIsDriveBusy(false)
-        }
-      }
-      requestAnimationFrame(animateInitialOpen)
-    }, 400)
-
-    // -----------------------------------------------------------------
     // RESIZE LISTENER
     // -----------------------------------------------------------------
     const handleResize = () => {
@@ -639,7 +607,6 @@ export function DvdPlayerScene({
 
     return () => {
       window.removeEventListener('resize', handleResize)
-      window.clearTimeout(initialOpenTimer)
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
@@ -649,6 +616,94 @@ export function DvdPlayerScene({
       renderer.dispose()
     }
   }, [])
+
+  // -----------------------------------------------------------------
+  // DYNAMIC ENTRANCE: Optical player descends from above & tray glides down open
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    if (!isActive) {
+      // When leaving player view (e.g. clicking Back), reset drive to top and tray to closed
+      if (driveGroupRef.current) {
+        driveGroupRef.current.position.y = 2.4
+      }
+      if (trayMeshRef.current) {
+        trayMeshRef.current.position.set(0, 1.663, -0.01)
+      }
+      setTrayState('closed')
+      trayStateRef.current = 'closed'
+      isDriveBusyRef.current = true
+      return
+    }
+
+    // When entering player screen (viewMode === 'player'):
+    // 1. Smoothly descend the optical drive chassis from above the screen (y = 2.4 -> 0)
+    if (!driveGroupRef.current || !trayMeshRef.current) return
+
+    isDriveBusyRef.current = true
+    setIsDriveBusy(true)
+    setTrayState('closed')
+    trayStateRef.current = 'closed'
+
+    const driveStart = performance.now()
+    const driveDuration = 600
+    const startY = 2.4
+    const targetY = 0.00
+
+    let trayAnimationStarted = false
+
+    function animateDriveDescent(now: number) {
+      const elapsed = now - driveStart
+      const progress = Math.min(elapsed / driveDuration, 1)
+      // Smooth physical deceleration (easeOutQuart)
+      const ease = 1 - Math.pow(1 - progress, 4)
+
+      if (driveGroupRef.current) {
+        driveGroupRef.current.position.y = startY + (targetY - startY) * ease
+      }
+
+      // 2. As the drive chassis locks into place at the top edge (~250ms), start motorized tray sliding down
+      if (elapsed >= 250 && !trayAnimationStarted) {
+        trayAnimationStarted = true
+        soundEngine.playTrayOpen()
+        setTrayState('opening')
+        trayStateRef.current = 'opening'
+
+        const trayStart = performance.now()
+        const trayDuration = 800
+        const trayStartPos = new THREE.Vector3(0, 1.663, -0.01)
+        const trayOpenPos = new THREE.Vector3(0, 0, 0)
+
+        function animateTrayGlide(tNow: number) {
+          const tElapsed = tNow - trayStart
+          const tProgress = Math.min(tElapsed / trayDuration, 1)
+          const tEase =
+            tProgress < 0.5
+              ? 4 * tProgress * tProgress * tProgress
+              : 1 - Math.pow(-2 * tProgress + 2, 3) / 2
+
+          if (trayMeshRef.current) {
+            trayMeshRef.current.position.lerpVectors(trayStartPos, trayOpenPos, tEase)
+          }
+
+          if (tProgress < 1) {
+            requestAnimationFrame(animateTrayGlide)
+          } else {
+            setTrayState('open')
+            trayStateRef.current = 'open'
+            isDriveBusyRef.current = false
+            setIsDriveBusy(false)
+          }
+        }
+        requestAnimationFrame(animateTrayGlide)
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(animateDriveDescent)
+      }
+    }
+
+    requestAnimationFrame(animateDriveDescent)
+  }, [isActive])
 
   // Helper to update mouse coordinates from client pointer event
   const updateMouse = (e: React.PointerEvent<HTMLDivElement>) => {
